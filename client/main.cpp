@@ -20,7 +20,7 @@
 #include <map>
 using namespace std;
 map<string,SOCKET> hosts;
-int  my_close_socket(SOCKET ConnectSocket){
+int  my_close_socket(SOCKET ConnectSocket,bool erase_from_hosts){
     int iResult;
     if (iResult == SOCKET_ERROR) {
         printf("shutdown failed with error: %d\n", WSAGetLastError());
@@ -28,21 +28,18 @@ int  my_close_socket(SOCKET ConnectSocket){
         return -1;
     }
     // cleanup
-    closesocket(ConnectSocket);
-}
-int  my_close_socket(string host,SOCKET ConnectSocket){
-    int iResult;
-    if (iResult == SOCKET_ERROR) {
-        printf("shutdown failed with error: %d\n", WSAGetLastError());
-        closesocket(ConnectSocket);
-
-        return -1;
+    if(erase_from_hosts){
+        for(std::map<string, SOCKET>::iterator it = hosts.begin(); it != hosts.end();){
+            if((it->second) == ConnectSocket){
+                it = hosts.erase(it);
+            }
+            else{
+                it++;
+            }
+        }
     }
-    // cleanup
-    hosts.erase(host);
-    closesocket(ConnectSocket);
+    return closesocket(ConnectSocket);
 }
-
 
 void closeAll(){
 
@@ -50,7 +47,7 @@ void closeAll(){
 
     for (it = hosts.begin(); it != hosts.end(); it++)
     {
-        my_close_socket(it->second);
+        my_close_socket(it->second, false);
     }
     hosts.clear();
 }
@@ -97,11 +94,11 @@ string recieve_data(SOCKET ConnectSocket){
         }
         else if ( iResult == 0 ) {
             printf("Connection closing..\n");
-            my_close_socket(ConnectSocket);
+            my_close_socket(ConnectSocket, true);
         }
         else {
             printf("recv failed with error: %d\n", WSAGetLastError());
-            my_close_socket(ConnectSocket);
+            my_close_socket(ConnectSocket, true);
         }
 
     } while( iResult > 0 );
@@ -131,7 +128,7 @@ int send_data(string http_command,SOCKET ConnectSocket){
     iResult = sendall(ConnectSocket,http_command.c_str(),&len);
     if (iResult == SOCKET_ERROR) {
         printf("send failed with error: %d\n", WSAGetLastError());
-        my_close_socket(ConnectSocket);
+        my_close_socket(ConnectSocket, true);
         return -1;
     }
 
